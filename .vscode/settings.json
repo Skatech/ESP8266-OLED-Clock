@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "new": "cpp",
+        "streambuf": "cpp",
+        "functional": "cpp",
+        "typeinfo": "cpp"
+    }
+}

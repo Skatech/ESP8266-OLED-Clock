@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hall Clock</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DIY Hall Clock v1.5</h1>
+        </header>
+        <br>
+        <!-- <hr> -->
+        <div class="params-container">
+            <h1 id="clockpanel">--:--:--</h1>
+            <h3 id="datepanel">--- --- -- ----</h3>
+        </div>
+        <hr>
+        <h3>Time settings</h3>
+        <div class="params-container">
+            <label for="dateinput">Date and time to commit</label>
+            <input type="text" id="dateinput" name="dateinput" required
+               minlength="16" maxlength="16" size="30">
+        </div>
+        <br>
+        <input type="button" value="Pick System Date" onclick="buttonPickSystemDateClick()">
+        <br><br>
+        <input type="button" value="Send To Device" onclick="buttonSetDeviceTimeClick()">
+        <br><br>
+        <input type="button" value="Syncronize Online" onclick="buttonSyncronizeTimeClick()">
+        <hr>
+
+        <h3>NTP settings</h3>
+        <div class="params-container">
+            <label for="edittimezone">Timezone</label>
+            <input type="text" id="edittimezone" minlength="1" maxlength="2" size="5" value="0">
+            <label for="editdaylight">Dayligth</label>
+            <input type="text" id="editdaylight" minlength="1" maxlength="2" size="5" value="0">
+            <label for="checkntpenabled">Syncronize</label>
+            <input type="checkbox" id="checkntpenabled" checked="true">
+
+            <label for="edittimeserver1">Time server 1</label>
+            <input type="text" id="edittimeserver1" minlength="0" maxlength="24" size="30" value="">
+            <label for="edittimeserver2">Time server 2</label>
+            <input type="text" id="edittimeserver2" minlength="0" maxlength="24" size="30" value="">
+            <label for="edittimeserver3">Time server 3</label>
+            <input type="text" id="edittimeserver3" minlength="0" maxlength="24" size="30" value="">
+        </div>
+        <br>
+        <input type="button" value="Send To Device" onclick="buttonSetDeviceSyncroClick()" disabled>
+
+        <hr>
+
+        <h3>Display settings</h3>
+        <div class="params-container">
+                <label for="editbrightness">Brightness</label>
+            <input type="text" id="editbrightness" minlength="1" maxlength="3" size="5" value="">            
+            <label for="editcolors">Colors</label>
+            <input type="text" id="editcolors" minlength="0" maxlength="32" size="36" value="" onchange="displayColorsTextChanged(this.value)">
+        </div>
+        <br>
+        <div class="params-container">
+            <label for="color0">Ticks color</label>
+            <input type="color" id="color0" onchange="displayColorChaged(0, this.value)"/>
+            <label for="color1">Hours color (night)</label>
+            <input type="color" id="color1" onchange="displayColorChaged(1, this.value)"/>
+            <label for="color2">Hours color (day)</label>
+            <input type="color" id="color2" onchange="displayColorChaged(2, this.value)"/>
+            <label for="color3">Minutes color</label>
+            <input type="color" id="color3" onchange="displayColorChaged(3, this.value)"/>
+            <label for="color4">Seconds color</label>
+            <input type="color" id="color4" onchange="displayColorChaged(4, this.value)"/>
+        </div>
+        <br>
+        <input type="button" value="Send To Device" onclick="buttonCommitDisplaySettingsClick()">
+
+        <hr>
+        <br>
+        <i id="statuspanel">Status: idle</i>
+
+    </div>
+    <script type="text/javascript" src="./js/script.js"></script>
+</body>
+</html>
