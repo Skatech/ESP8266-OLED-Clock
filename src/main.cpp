@@ -13,9 +13,13 @@
 
 #include "secrets.h"
 #include "configuration.h"
-#include "mytime.h"
+#include "time-helpers.h"
 #include "forecast.h"
 #include "display-SSD1306.h"
+
+
+#define LED_ON()    digitalWrite(LED_BUILTIN, LOW)
+#define LED_OFF()   digitalWrite(LED_BUILTIN, HIGH)
 
 Configuration state;
 ClockDisplay display;
@@ -40,8 +44,8 @@ void initializeNTP() {
 }
 
 void setup() {
-    //pinMode(LED_BUILTIN, OUTPUT);
-    //digitalWrite(LED_BUILTIN, 0x01);
+    pinMode(LED_BUILTIN, OUTPUT);
+    LED_ON();
 
     Serial.begin(UART_SPEED);
     Serial.println("\n\nESP8266 OLED-SSD1306 Clock\n=============================\n");
@@ -55,7 +59,10 @@ void setup() {
     // Serial.print("Time Server 3: ");
     // Serial.println(state.timeServer3);
 
-    initializeNTP();
+    if (true) {
+        initializeNTP();
+        Time(2000, 1, 1, 0, 0, 0).setSystemTime();
+    }
 
     display.initialize(state.displayBrightness, state.displayColors);
 
@@ -155,33 +162,32 @@ void setup() {
 }
 
 time_t lastsec = -1;
-
 void loop() {
-    time_t sec = time(NULL);
-    //Time now = Time::now();
-    
-    if (lastsec != sec) {
-        lastsec = sec;
-        display.update(sec);
-
-        if (forecast.checkUpdate()) {
-            Serial.println(forecast.toString());
-            display.updateForecast(forecast);
-        }
-    }
-
     if (WiFi.status() != wl_status) {
         wl_status = WiFi.status();
         if (wl_status == WL_CONNECTED) {
             Serial.print("Station connected, IP address: ");
             Serial.println(WiFi.localIP());
+            LED_OFF();
         }
         else if (wl_status == WL_DISCONNECTED) {
             Serial.println("Station disconnected");
+            LED_ON();
         }
         else {
             Serial.print("Station connection state changed: ");
             Serial.println(wl_status);
+        }
+    }
+
+    time_t sec = time(NULL);    
+    if (lastsec != sec) {
+        lastsec = sec;
+        display.update(sec);
+
+        if (wl_status == WL_CONNECTED && forecast.checkUpdate()) {
+            Serial.println(forecast.toString());
+            display.updateForecast(forecast);
         }
     }
 
