@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 
-#include "time-helpers.h"
+#include "DateTime.h"
 #include "forecast.h"
 
 #ifdef U8X8_HAVE_HW_SPI
@@ -59,7 +59,7 @@ class ClockDisplay {
         _forecast = forecast.toString("Weather: %W %t'C %D %Sms");
     }
 
-    void update(const Time& now) {
+    void update(const DateTime& now) {
         String tms = now.toString("%H %M");
         String tdt = now.toString("%d %b %y");
 
@@ -70,7 +70,7 @@ class ClockDisplay {
         _u8g2.setFontPosTop();
         _u8g2.setFontDirection(0);
         _u8g2.drawStr(14, 0, tms.c_str());
-        if (now.totalSeconds() % 2) {
+        if (now.getSecondsTotal() % 2) {
             _u8g2.drawStr(58, 0, ":");
         }
 
@@ -80,7 +80,7 @@ class ClockDisplay {
         _u8g2.setFontPosTop();
         _u8g2.setFontDirection(0);
 
-        unsigned int shift = now.totalSeconds() % (_forecast.length() + 20); // seconds to display date
+        unsigned int shift = now.getSecondsTotal() % (_forecast.length() + 20); // seconds to display date
         if (_forecast.length() > 0 && _forecast.length() > shift) {
             if (shift > 1) {
                 String sub = _forecast.substring(shift - 2, shift - 2 + 12);

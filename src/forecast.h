@@ -8,7 +8,7 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h> 
+#include <ESP8266HTTPClient.h>
 
 #define MINIMAL_REQUEST_REPEAT_INTERVAL 120     // interval between attempts to request service, seconds
 #define DEFAULT_WEATHER_UPDATE_INTERVAL 1800    // interval between forecast update, seconds
@@ -109,7 +109,10 @@ class Forecast {
         HTTPClient http;
 
         _lastRequest = now;
+        
+
         Serial.print("Forecast updating... ");
+
         String request("http://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current_weather=true");
         request.replace("{LAT}", String(_latitude));
         request.replace("{LON}", String(_longitude));

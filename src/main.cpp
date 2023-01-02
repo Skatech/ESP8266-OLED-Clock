@@ -13,7 +13,8 @@
 
 #include "secrets.h"
 #include "configuration.h"
-#include "time-helpers.h"
+#include "DateTime.h"
+#include "SNTPControl.h"
 #include "forecast.h"
 #include "display-SSD1306.h"
 
@@ -39,7 +40,7 @@ bool net_initialize() {
 }
 
 void initializeNTP() {
-    NtpHelper::initializeNTP(state.timezone, state.daylight,
+    SNTPControl::configure(state.timezone, state.daylight,
         state.timeServer1, state.timeServer2, state.timeServer3, state.ntpenabled);
 }
 
@@ -61,7 +62,7 @@ void setup() {
 
     if (true) {
         initializeNTP();
-        Time(2000, 1, 1, 0, 0, 0).setSystemTime();
+        DateTime(2000, 1, 1, 0, 0, 0).setAsSystemTime();
     }
 
     display.initialize(state.displayBrightness, state.displayColors);
@@ -85,12 +86,12 @@ void setup() {
     Serial.println(LittleFS.begin() ? "OK" : "FAILED");
 
     server.on("/time", HTTP_GET, []() {
-        server.send(200, "text/html", Time::now().toString());
+        server.send(200, "text/html", DateTime::now().toString());
     });
 
     server.on("/status", HTTP_GET, []() {
         String json("{\"date\":\"[DATE]\", \"timezone\":[ZONE], \"daylight\":[DAYL], \"ntpenabled\":[NTPE], \"ntpserver1\":\"[NTP1]\", \"ntpserver2\":\"[NTP2]\", \"ntpserver3\":\"[NTP3]\", \"brightness\":[BRIG], \"colors\":\"[CLRS]\"}");
-        json.replace("[DATE]", Time::now().toString());
+        json.replace("[DATE]", DateTime::now().toString());
         json.replace("[ZONE]", "3");
         json.replace("[DAYL]", "0");
         json.replace("[NTPE]", "true");
@@ -105,12 +106,11 @@ void setup() {
     });
 
     server.on("/set-date", HTTP_POST, []() {
-        String date = server.arg("date");
-        //time_t tt = parse_datetime(date.c_str());
-        //bool succ = (tt >= 0) && set_datetime(tt);
-        bool succ = Time(date.c_str()).setSystemTime();
-        String msg = String(succ ? "Set new date: " : "Date set failed: ") + date;
-        server.send(succ ? 200 : 400, "text/html", msg);
+        String dtstr = server.arg("date");
+        DateTime date = DateTime::parseISOString(dtstr.c_str());
+        bool success = date.isDateTime() && date.setAsSystemTime();
+        String msg = String(success ? "Set new date: " : "Date set failed: ") + dtstr;
+        server.send(success ? 200 : 400, "text/html", msg);
         Serial.println(msg);
     });
 
@@ -145,14 +145,7 @@ void setup() {
         Serial.println(msg);
     });
 
-    server.on("/write-config", HTTP_GET, []() {
-        bool succ = state.saveToEEPROM();
-        String msg = String("Configuration saved to EEPROM: ") + succ ? "OK" : "FAIL";
-        server.send(succ ? 200 : 400, "text/html", msg);
-        Serial.println(msg);
-    });
-
-    server.on("/sync", HTTP_GET, []() {
+    server.on("/syncronize", HTTP_GET, []() {
         initializeNTP();
         server.send(200, "text/html", "SNTP restarted");
     });

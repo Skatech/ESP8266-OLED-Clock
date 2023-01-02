@@ -1,64 +1,52 @@
 /******************************************************************************
  * (c) Skatech Research Lab, 2000-2023.
  * Last change: 2023.01.02
- * Time class       - time operations and formatting
- * NtpHelper class  - system NTP service initialization and control
+ * DateTime class - date time operations and formatting helper class
  *****************************************************************************/
 
 #include <Arduino.h>
 #include <time.h>
-#include <sntp.h>
 
 #pragma once
 
-//#define CONFIG_LWIP_SNTP_UPDATE_DELAY 3600  // seconds between ntp time syncronization, default 3600
 #define NOT_A_TIME -1
 
 extern int settimeofday(const struct timeval* tv, const struct timezone* tz);
 
-class Time {
-    time_t _ms;
+class DateTime {
+    private:
+    time_t _sec;
 
     public:
-    Time(const time_t &milliseconds = 0) {
-        _ms = milliseconds;
+    DateTime(const time_t &seconds = 0) {
+        _sec = seconds;
     }
 
-    Time(Time &time) {
-        _ms = time._ms;
+    DateTime(const DateTime &time) {
+        _sec = time._sec;
     }
 
-    Time (int year, int month, int day, int hour, int minute, int second) {
+    DateTime(int year, int month, int day, int hour, int minute, int second) {
         struct tm t = {0};
         t.tm_year = year - 1900; t.tm_mon = month - 1; t.tm_mday = day;
         t.tm_hour = hour; t.tm_min = minute; t.tm_sec = second;
-        _ms = mktime(&t);
+        _sec = mktime(&t);
     }
 
-    // Create time from ISO string "YYYYMMDDTHHMMSSZ"
-    Time (const char* input) {
-        if (strlen(input) >= 16 && input[8] == 'T' && input[15] == 'Z') {
-            struct tm tmm = {0};
-            sscanf(input, "%4d%2d%2dT%2d%2d%2dZ",
-                &tmm.tm_year, &tmm.tm_mon, &tmm.tm_mday,
-                &tmm.tm_hour, &tmm.tm_min, &tmm.tm_sec);
-            tmm.tm_year -= 1900;
-            tmm.tm_mon -= 1;
-            _ms = mktime(&tmm);
-        }
-        else _ms = NOT_A_TIME;
+    bool isDateTime() const {
+        return _sec > NOT_A_TIME;
     }
 
-    const time_t& totalSeconds() const {
-        return _ms;
+    // returns time since the Epoch (00:00:00 UTC, January 1, 1970), measured in seconds
+    const time_t& getSecondsTotal() const {
+        return _sec;
     }
 
     tm* toDetails() {
-        return localtime(&_ms);
+        return localtime(&_sec);
     }
 
-    /*
-    Return time ISO string "YYYYMMDDTHHMMSSZ"
+    /* Return custom formatted time string, default format ISO "YYYYMMDDTHHMMSSZ"
     %a	Abbreviated weekday name *	                                Thu
     %A	Full weekday name *                                         Thursday
     %b	Abbreviated month name *	                                Aug
@@ -93,51 +81,37 @@ class Time {
     %X	Time representation *	                                    14:55:02
     %y	Year, last two digits (00-99)	                            01
     %Y	Year	                                                    2001
-    %z	ISO 8601 offset from UTC in timezone (1 minute=1, 1 hour=100)
-    If timezone cannot be determined, no characters	+100
-    %Z	Timezone name or abbreviation *
-    If timezone cannot be determined, no characters	CDT
+    %z	ISO 8601 offset from UTC in timezone (1 minute=1, 1 hour=100) If timezone cannot be determined, no characters	+100
+    %Z	Timezone name or abbreviation * If timezone cannot be determined, no characters	CDT
     %%	A % sign	                                                % */
     String toString(const char* format = "%Y%m%dT%H%M%SZ") const {
-        struct tm *t = localtime(&_ms);
+        struct tm *t = localtime(&_sec);
         char v[17];
         strftime(v, sizeof(v), format, t);
         return String(v);
     }
 
-    bool setSystemTime() {
-        struct timeval tv = { _ms, 0 };
+    bool setAsSystemTime() {
+        struct timeval tv = { _sec, 0 };
         return settimeofday(&tv, NULL) == 0;
     }
 
-    static Time now() {
-        return Time(time(NULL));
-    }
-};
-
-class NtpHelper {
-    public:
-    
-    static bool isNTPEnabled() {
-        return sntp_enabled();
+    static DateTime now() {
+        return DateTime(time(NULL));
     }
 
-    static void enableNTP(bool enable) {
-        if (enable != sntp_enabled()) {
-            if (enable) {
-                sntp_init();
-                Serial.println("sntp_init()");
-            }
-            else {
-                sntp_stop();
-                Serial.println("sntp_stop()");
+    // Create time from ISO string format "YYYYMMDDTHHMMSSZ"
+    static DateTime parseISOString(const char* input) {
+        if (strlen(input) >= 16 && input[8] == 'T' && input[15] == 'Z') {
+            struct tm tmm = {0};
+            if (sscanf(input, "%4d%2d%2dT%2d%2d%2dZ",
+                    &tmm.tm_year, &tmm.tm_mon, &tmm.tm_mday,
+                    &tmm.tm_hour, &tmm.tm_min, &tmm.tm_sec) == 6) {
+                tmm.tm_year -= 1900;
+                tmm.tm_mon -= 1;
+                return DateTime(mktime(&tmm));
             }
         }
+        return DateTime(NOT_A_TIME);
     }
-
-    static void initializeNTP(uint8_t timezone, uint8_t daylight, // TZ_Europe_Moscow (TZ.h)
-        const char* timeServer1, const char* timeServer2, const char* timeServer3, bool enable = true) {
-        configTime(timezone * 3600, daylight * 3600, timeServer1, timeServer2, timeServer3);
-        enableNTP(enable);
-    } 
 };

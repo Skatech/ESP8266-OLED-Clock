@@ -3,6 +3,8 @@
         "new": "cpp",
         "streambuf": "cpp",
         "functional": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "memory": "cpp",
+        "optional": "cpp"
     }
 }
