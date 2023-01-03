@@ -143,7 +143,7 @@ function requestState() {
     }
 
     let rq = new XMLHttpRequest()
-    rq.open('GET', 'status', true)
+    rq.open('GET', 'get-state', true)
     rq.onreadystatechange = function() {
         if (rq.readyState === 4) {
             console.log(rq.response)            
@@ -152,7 +152,7 @@ function requestState() {
         }
     }
     rq.send('')
-    console.log("GET-status request sent")
+    console.log("get-state request sent")
 }
 
 function updateCurrentTime() {

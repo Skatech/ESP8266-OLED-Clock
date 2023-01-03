@@ -32,18 +32,20 @@ class Forecast {
         return _winddir;
     }
 
-    const char* getWindWorldSide() const {
-        return getWorldSide(_winddir);
+    const char* getWindWorldSide(bool shortcut) const {
+        return getWorldSide(_winddir, shortcut);
     }
 
     const char* getWeatherDescription() const {
         return getWeatherCodeDescription(_weathercode);
     }
 
-    // %W, %w - Weather description, weather code
-    // %t     - Temperature, Celsius
-    // %S, %s - Wind speed m/s, wind speed km/h
-    // %D, %d - Wind world side, wind direction
+    /* Return weather custom formatted string, options:
+    %W, %w - Weather description, weather code
+    %t     - Temperature, Celsius
+    %S, %s - Wind speed in km/h, wind speed in m/s
+    %d     - Wind direction
+    %E, %e - Wind world side full, wind world side short */
     String toString(const char* format) const {
         String builder(format);
         while (builder.indexOf("%w") >= 0) {
@@ -56,27 +58,39 @@ class Forecast {
             builder.replace("%t", String(_temperature, 1));
         }
         while (builder.indexOf("%s") >= 0) {
-            builder.replace("%s", String(_windspeed, 1));
+            builder.replace("%s", String(_windspeed / 3.6F, 1));
         }
         while (builder.indexOf("%S") >= 0) {
-            builder.replace("%S", String(_windspeed / 3.6F, 1));
+            builder.replace("%S", String(_windspeed, 1));
         }
         while (builder.indexOf("%d") >= 0) {
             builder.replace("%d", String(_winddir, 1));
         }
-        while (builder.indexOf("%D") >= 0) {
-            builder.replace("%D", getWorldSide(_winddir));
+        while (builder.indexOf("%e") >= 0) {
+            builder.replace("%e", getWorldSide(_winddir, true));
+        }
+        while (builder.indexOf("%E") >= 0) {
+            builder.replace("%E", getWorldSide(_winddir, false));
         }
         return builder;
     }
 
     String toString() const {
-        return toString("Weather:%W %t'C wind:%D %Sm/s");
+        return toString("%W, %t'C, wind %E %sm/s");
     }
     
-    static const char* getWorldSide(float direction) {
-        const char* const sides[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-        return sides[((int)(direction + 22.5F + 360.0F) % 360 / 45)];
+    static const char* getWorldSide(float direction, bool shortcut) {
+        switch ((int)(direction + 22.5F + 360.0F) % 360 / 45) {
+            case 0: return shortcut ? "N"  : "North";
+            case 1: return shortcut ? "NE" : "North-East";
+            case 2: return shortcut ? "E"  : "East";
+            case 3: return shortcut ? "SE" : "South-East";
+            case 4: return shortcut ? "S"  : "South";
+            case 5: return shortcut ? "SW" : "South-West";
+            case 6: return shortcut ? "W"  : "West";
+            case 7: return shortcut ? "NW" : "North-West";
+        }
+        return NULL;
     }
     
     static const char* getWeatherCodeDescription(u8 weatherCode) {

@@ -19,6 +19,11 @@ class SNTPControl {
         return sntp_enabled();
     }
 
+    static void restart() {
+        sntp_stop();
+        sntp_init();
+    }
+
     static void start() {
         sntp_init();
     }

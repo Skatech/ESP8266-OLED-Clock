@@ -46,7 +46,7 @@ class DateTime {
         return localtime(&_sec);
     }
 
-    /* Return custom formatted time string, default format ISO "YYYYMMDDTHHMMSSZ"
+    /* Return custom formatted time string, options:
     %a	Abbreviated weekday name *	                                Thu
     %A	Full weekday name *                                         Thursday
     %b	Abbreviated month name *	                                Aug
@@ -86,11 +86,12 @@ class DateTime {
     %%	A % sign	                                                % */
     String toString(const char* format = "%Y-%m-%d %H:%M:%S") const {
         struct tm *t = localtime(&_sec);
-        char v[17];
+        char v[24];
         strftime(v, sizeof(v), format, t);
         return String(v);
     }
 
+    // Return ISO format date-time string "YYYYMMDDTHHMMSSZ"
     String toISOString() {
         return toString("%Y%m%dT%H%M%SZ");
     }
