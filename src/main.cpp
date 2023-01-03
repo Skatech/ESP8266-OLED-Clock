@@ -24,7 +24,7 @@
 
 Configuration state;
 ClockDisplay display;
-Forecast forecast(FORECAST_LATITUDE, FORECAST_LONGITUDE, 600); // coordinates must be defined in secrets.h
+ForecastProvider forecast(FORECAST_LATITUDE, FORECAST_LONGITUDE, 600); // coordinates must be defined in secrets.h
 wl_status_t wl_status = WL_IDLE_STATUS;
 ESP8266WebServer server(80);
 
@@ -91,7 +91,7 @@ void setup() {
 
     server.on("/status", HTTP_GET, []() {
         String json("{\"date\":\"[DATE]\", \"timezone\":[ZONE], \"daylight\":[DAYL], \"ntpenabled\":[NTPE], \"ntpserver1\":\"[NTP1]\", \"ntpserver2\":\"[NTP2]\", \"ntpserver3\":\"[NTP3]\", \"brightness\":[BRIG], \"colors\":\"[CLRS]\"}");
-        json.replace("[DATE]", DateTime::now().toString());
+        json.replace("[DATE]", DateTime::now().toISOString());
         json.replace("[ZONE]", "3");
         json.replace("[DAYL]", "0");
         json.replace("[NTPE]", "true");
@@ -178,9 +178,10 @@ void loop() {
         lastsec = sec;
         display.update(sec);
 
-        if (wl_status == WL_CONNECTED && forecast.checkUpdate()) {
-            Serial.println(forecast.toString());
-            display.updateForecast(forecast);
+        if (wl_status == WL_CONNECTED && forecast.pull()) {
+            Serial.print(DateTime::now().toTimeString() + "  ");
+            Serial.println(forecast.getForecast().toString());
+            display.updateForecast(forecast.getForecast());
         }
     }
 

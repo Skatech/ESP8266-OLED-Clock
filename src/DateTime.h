@@ -26,7 +26,7 @@ class DateTime {
         _sec = time._sec;
     }
 
-    DateTime(int year, int month, int day, int hour, int minute, int second) {
+    DateTime(u16 year, u8 month, u8 day, u8 hour, u8 minute, u8 second) {
         struct tm t = {0};
         t.tm_year = year - 1900; t.tm_mon = month - 1; t.tm_mday = day;
         t.tm_hour = hour; t.tm_min = minute; t.tm_sec = second;
@@ -84,11 +84,23 @@ class DateTime {
     %z	ISO 8601 offset from UTC in timezone (1 minute=1, 1 hour=100) If timezone cannot be determined, no characters	+100
     %Z	Timezone name or abbreviation * If timezone cannot be determined, no characters	CDT
     %%	A % sign	                                                % */
-    String toString(const char* format = "%Y%m%dT%H%M%SZ") const {
+    String toString(const char* format = "%Y-%m-%d %H:%M:%S") const {
         struct tm *t = localtime(&_sec);
         char v[17];
         strftime(v, sizeof(v), format, t);
         return String(v);
+    }
+
+    String toISOString() {
+        return toString("%Y%m%dT%H%M%SZ");
+    }
+
+    String toDateString() {
+        return toString("%Y-%m-%d");
+    }
+
+    String toTimeString() {
+        return toString("%H:%M:%S");
     }
 
     bool setAsSystemTime() {

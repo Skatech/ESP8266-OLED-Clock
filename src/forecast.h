@@ -10,44 +10,35 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
-#define MINIMAL_REQUEST_REPEAT_INTERVAL 120     // interval between attempts to request service, seconds
-#define DEFAULT_WEATHER_UPDATE_INTERVAL 1800    // interval between forecast update, seconds
+#define MINIMAL_REQUEST_REPEAT_INTERVAL 60      // seconds between service request attempts 
+#define DEFAULT_WEATHER_UPDATE_INTERVAL 1800    // seconds between forecast updates by default
 
 class Forecast {
     private:
-    float _latitude, _longitude, _temperature, _windSpeed, _windDirection;
-    int _updateInterval, _weatherCode; 
-    time_t _lastUpdate = 0, _lastRequest = 0;
+    float _temperature, _windspeed, _winddir;
+    u8 _weathercode; 
+    friend class ForecastProvider;
 
     public:
-    Forecast(float latitude, float longitude, int updateInterval = DEFAULT_WEATHER_UPDATE_INTERVAL) {
-        _latitude = latitude; _longitude = longitude; _updateInterval = updateInterval;
-    }
-
     float getTemperature() const {
         return _temperature;
     }
 
     float getWindSpeed() const {
-        return _windSpeed;
+        return _windspeed;
     }
     
     float getWindDirection() const {
-        return _windDirection;
+        return _winddir;
     }
 
-    const char* getWindDirectionWorldSide() const {
-        return directionToWorldSide(_windDirection);
+    const char* getWindWorldSide() const {
+        return getWorldSide(_winddir);
     }
 
     const char* getWeatherDescription() const {
-        return weatherCodeDescription(_weatherCode);
+        return getWeatherCodeDescription(_weathercode);
     }
-
-    time_t isLoaded() const {
-        return _lastUpdate > 0;
-    }
-
 
     // %W, %w - Weather description, weather code
     // %t     - Temperature, Celsius
@@ -55,101 +46,40 @@ class Forecast {
     // %D, %d - Wind world side, wind direction
     String toString(const char* format) const {
         String builder(format);
-
         while (builder.indexOf("%w") >= 0) {
-            builder.replace("%w", String(_weatherCode));
+            builder.replace("%w", String(_weathercode));
         }
-
         while (builder.indexOf("%W") >= 0) {
-            builder.replace("%W", weatherCodeDescription(_weatherCode));
+            builder.replace("%W", getWeatherCodeDescription(_weathercode));
         }
-
         while (builder.indexOf("%t") >= 0) {
             builder.replace("%t", String(_temperature, 1));
         }
-
         while (builder.indexOf("%s") >= 0) {
-            builder.replace("%s", String(_windSpeed, 1));
+            builder.replace("%s", String(_windspeed, 1));
         }
-
         while (builder.indexOf("%S") >= 0) {
-            builder.replace("%S", String(_windSpeed / 3.6F, 1));
+            builder.replace("%S", String(_windspeed / 3.6F, 1));
         }
-
         while (builder.indexOf("%d") >= 0) {
-            builder.replace("%d", String(_windDirection, 1));
+            builder.replace("%d", String(_winddir, 1));
         }
-
         while (builder.indexOf("%D") >= 0) {
-            builder.replace("%D", directionToWorldSide(_windDirection));
+            builder.replace("%D", getWorldSide(_winddir));
         }
-
         return builder;
     }
 
     String toString() const {
-        return toString("Weather: %W Temp: %t'C Wind: %Sm/s, %D");
+        return toString("Weather:%W %t'C wind:%D %Sm/s");
     }
     
-    bool checkUpdate() {
-        if (WiFi.status() != WL_CONNECTED) {
-            return false;
-        }
-
-        time_t now = time(NULL);
-        if ((_lastUpdate > 0) && (_lastUpdate + _updateInterval > now)) {
-            return false;
-        }
-
-        if (_lastRequest + MINIMAL_REQUEST_REPEAT_INTERVAL > now) {
-            return false;
-        }
-        
-        WiFiClient wifi;
-        HTTPClient http;
-
-        _lastRequest = now;
-        
-
-        Serial.print("Forecast updating... ");
-
-        String request("http://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current_weather=true");
-        request.replace("{LAT}", String(_latitude));
-        request.replace("{LON}", String(_longitude));
-        http.begin(wifi, request);
-
-        int code = http.GET();
-        if(code == HTTP_CODE_OK) {
-            String data = http.getString();
-            const char* wdata = strstr(data.c_str(), "{\"temperature\":");    
-            float temperature, windSpeed, windDirection;
-            int weatherCode;
-
-            if (sscanf(wdata, "{\"temperature\":%f,\"windspeed\":%f,\"winddirection\":%f,\"weathercode\":%d}",
-                    &temperature, &windSpeed, &windDirection, &weatherCode) == 4) {
-                _temperature = temperature;
-                _windSpeed = windSpeed;
-                _windDirection = windDirection;
-                _weatherCode = weatherCode;
-                _lastUpdate = now;
-                Serial.println("OK");
-                return true;
-            }
-
-            Serial.println("FAIL: Invalid data format");
-            return false;
-        }
-
-        Serial.printf("FAIL: (%d) %s\n", code, http.errorToString(code).c_str());
-        return false;
-    }
-
-    static const char* directionToWorldSide(float direction) {
+    static const char* getWorldSide(float direction) {
         const char* const sides[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
         return sides[((int)(direction + 22.5F + 360.0F) % 360 / 45)];
     }
     
-    static const char* weatherCodeDescription(int weatherCode) {
+    static const char* getWeatherCodeDescription(u8 weatherCode) {
         switch (weatherCode) {
             case 0: return "Clear sky";
             case 1: return "Mainly clear";
@@ -179,7 +109,86 @@ class Forecast {
             case 95: return "Slight or moderate thunderstorm";
             case 96: return "Thunderstorm with slight hail";
             case 99: return "Thunderstorm with heavy hail";
-            default: return "";
         }
+        return NULL;
+    }
+};
+
+class ForecastProvider {
+    private:
+    Forecast _forecast;
+    time_t _updated, _request;
+    float _latitude, _longitude;
+    u32 _interval;
+
+    public:
+    ForecastProvider(float latitude, float longitude, u32 updateInterval = DEFAULT_WEATHER_UPDATE_INTERVAL) {
+        initialize(latitude, longitude, updateInterval);
+    }
+
+    void initialize(float latitude, float longitude, u32 updateInterval = DEFAULT_WEATHER_UPDATE_INTERVAL) {
+        _latitude = latitude; _longitude = longitude; _interval = updateInterval;
+    }
+
+    // Return true when current forecast fresher than given period in seconds
+    bool hasForecastFor(u32 lastSeconds) const {
+        return _updated > 0 && (_updated + lastSeconds > time(NULL));
+    }
+
+    const Forecast& getForecast() const {
+        return _forecast;
+    }
+
+    // Can be called every tick to check where forecast outdated and refresh
+    // Return true only when new forecast received, otherwise false
+    bool pull() {
+        if (WiFi.status() != WL_CONNECTED) {
+            return false;
+        }
+
+        time_t now = time(NULL);
+        if (_updated > 0 && (_updated + _interval > now)) {
+            return false;
+        }
+
+        if (_request + MINIMAL_REQUEST_REPEAT_INTERVAL > now) {
+            return false;
+        }
+        
+        _request = now;
+        WiFiClient wifi;
+        HTTPClient http;
+        Serial.print("Forecast updating... ");
+
+        String request("http://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current_weather=true");
+        request.replace("{LAT}", String(_latitude));
+        request.replace("{LON}", String(_longitude));
+        http.begin(wifi, request);
+
+        u32 code = http.GET();
+        if(code == HTTP_CODE_OK) {
+            String data = http.getString();
+            const char* wdata = strstr(data.c_str(), "{\"temperature\":");    
+            float temperature, windspeed, winddir;
+            int weathercode;
+
+            if (wdata && sscanf(wdata,
+                    "{\"temperature\":%f,\"windspeed\":%f,\"winddirection\":%f,\"weathercode\":%d}",
+                    &temperature, &windspeed, &winddir, &weathercode) == 4) {
+                _forecast._temperature = temperature;
+                _forecast._windspeed = windspeed;
+                _forecast._winddir = winddir;
+                _forecast._weathercode = weathercode;
+                _updated = now;
+                Serial.println("OK");
+                return true;
+            }
+
+            Serial.println("FAIL: Invalid data format");
+            return false;
+        }
+
+        Serial.printf("FAIL: (%d) %s\n", code, http.errorToString(code).c_str());
+        return false;
     }
 };

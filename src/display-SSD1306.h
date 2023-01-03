@@ -56,7 +56,7 @@ class ClockDisplay {
     }
 
     void updateForecast(const Forecast& forecast) {
-        _forecast = forecast.toString("Weather: %W %t'C %D %Sms");
+        _forecast = forecast.toString(); //"Weather: %W %t'C %D %Sms"
     }
 
     void update(const DateTime& now) {
