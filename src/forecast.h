@@ -10,16 +10,21 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
-#define MINIMAL_REQUEST_REPEAT_INTERVAL 60      // seconds between service request attempts 
-#define DEFAULT_WEATHER_UPDATE_INTERVAL 1800    // seconds between forecast updates by default
+#define MINIMAL_REQUEST_REPEAT_PERIOD 60      // seconds between service request attempts 
+#define DEFAULT_WEATHER_UPDATE_PERIOD 1800    // seconds between forecast updates by default
 
 class Forecast {
     private:
+    time_t _timestamp;
     float _temperature, _windspeed, _winddir;
-    u8 _weathercode; 
+    u8 _weathercode;
     friend class ForecastProvider;
 
     public:
+    time_t getTimestamp() const {
+        return _timestamp;
+    }
+
     float getTemperature() const {
         return _temperature;
     }
@@ -41,13 +46,17 @@ class Forecast {
     }
 
     /* Return weather custom formatted string, options:
+    %m     - Timestamp in seconds since January 1, 1970
     %W, %w - Weather description, weather code
     %t     - Temperature, Celsius
     %S, %s - Wind speed in km/h, wind speed in m/s
     %d     - Wind direction
     %E, %e - Wind world side full, wind world side short */
-    String toString(const char* format) const {
+    String toString(const char* format = "%W, %t'C, wind %E %sm/s") const {
         String builder(format);
+        while (builder.indexOf("%m") >= 0) {
+            builder.replace("%m", String(_timestamp));
+        }
         while (builder.indexOf("%w") >= 0) {
             builder.replace("%w", String(_weathercode));
         }
@@ -75,8 +84,9 @@ class Forecast {
         return builder;
     }
 
-    String toString() const {
-        return toString("%W, %t'C, wind %E %sm/s");
+
+    String toJSONString() const {
+        return toString("{\"timeStamp\":%m, \"weatherCode\":%w, \"weatherDescription\":\"%W\", \"temperatureCelsius\":%t, \"windSpeed\":%s, \"windDirection\":%d, \"windDirectionSide\":\"%E\", \"windDirectionSideShort\":\"%e\"}");
     }
     
     static const char* getWorldSide(float direction, bool shortcut) {
@@ -93,8 +103,8 @@ class Forecast {
         return NULL;
     }
     
-    static const char* getWeatherCodeDescription(u8 weatherCode) {
-        switch (weatherCode) {
+    static const char* getWeatherCodeDescription(u8 code) {
+        switch (code) {
             case 0: return "Clear sky";
             case 1: return "Mainly clear";
             case 2: return "Partly cloudy";
@@ -131,22 +141,22 @@ class Forecast {
 class ForecastProvider {
     private:
     Forecast _forecast;
-    time_t _updated, _request;
     float _latitude, _longitude;
-    u32 _interval;
+    time_t _request;
+    uint32_t _period;
 
     public:
-    ForecastProvider(float latitude, float longitude, u32 updateInterval = DEFAULT_WEATHER_UPDATE_INTERVAL) {
-        initialize(latitude, longitude, updateInterval);
+    ForecastProvider(float latitude, float longitude, uint32_t updatePeriod = DEFAULT_WEATHER_UPDATE_PERIOD) {
+        initialize(latitude, longitude, updatePeriod);
     }
 
-    void initialize(float latitude, float longitude, u32 updateInterval = DEFAULT_WEATHER_UPDATE_INTERVAL) {
-        _latitude = latitude; _longitude = longitude; _interval = updateInterval;
+    void initialize(float latitude, float longitude, uint32_t updatePeriod = DEFAULT_WEATHER_UPDATE_PERIOD) {
+        _latitude = latitude; _longitude = longitude; _period = updatePeriod;
     }
 
     // Return true when current forecast fresher than given period in seconds
-    bool hasForecastFor(u32 lastSeconds) const {
-        return _updated > 0 && (_updated + lastSeconds > time(NULL));
+    bool hasForecastFor(uint32_t lastSeconds) const {
+        return _forecast._timestamp > 0 && (_forecast._timestamp + lastSeconds > time(NULL));
     }
 
     const Forecast& getForecast() const {
@@ -161,11 +171,11 @@ class ForecastProvider {
         }
 
         time_t now = time(NULL);
-        if (_updated > 0 && (_updated + _interval > now)) {
+        if (_request + MINIMAL_REQUEST_REPEAT_PERIOD > now) {
             return false;
         }
 
-        if (_request + MINIMAL_REQUEST_REPEAT_INTERVAL > now) {
+        if (_forecast._timestamp > 0 && (_forecast._timestamp + _period > now)) {
             return false;
         }
         
@@ -193,7 +203,7 @@ class ForecastProvider {
                 _forecast._windspeed = windspeed;
                 _forecast._winddir = winddir;
                 _forecast._weathercode = weathercode;
-                _updated = now;
+                _forecast._timestamp = now;
                 Serial.println("OK");
                 return true;
             }

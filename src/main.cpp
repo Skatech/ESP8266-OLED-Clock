@@ -55,6 +55,8 @@ void setup() {
     Serial.begin(UART_SPEED);
     Serial.println("\n\nESP8266 OLED-SSD1306 Clock\n=============================\n");
 
+    Serial.println(sizeof(Forecast));
+
     state.loadStoredConfigurationOrDefaults();
 
     // Serial.print("Time Server 1: ");
@@ -107,6 +109,18 @@ void setup() {
             ? forecast.getForecast().toString() : String("Unknown"));
 
         server.send(200, "text/plain", message);
+    });
+
+    server.on("/get-state-forecast", HTTP_GET, []() {
+        if (forecast.hasForecastFor(3600)) {
+            String data = forecast.getForecast().toJSONString();
+            server.send(200, "application/json", data);
+            Serial.println("Forecast state sended OK");
+        }
+        else {
+            server.send(200, "application/json", "null");
+            Serial.println("Forecast state sended OK - (No forecast)");
+        }       
     });
 
     server.on("/get-state", HTTP_GET, []() {
